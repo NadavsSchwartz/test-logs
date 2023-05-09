@@ -1,0 +1,439 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["jsonProtocol"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model User {
+  id                      String                    @id @default(cuid())
+  active                  Boolean                   @default(false)
+  firstName               String                    @default("")
+  lastName                String                    @default("")
+  password                String?
+  createdBy               String?
+  updatedBy               String?
+  lastLoggedInAt          DateTime?
+  image                   String?
+  email                   String?                   @unique
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @default(now())
+  name                    String?
+  role                    UserRole                  @default(TEACHER)
+  verificationToken       String?                   @default(cuid())
+  emailVerified           DateTime?
+  gender                  String?
+  teamId                  String?
+  accounts                Account[]
+  classrooms              Classroom[]
+  classroomMembership     ClassroomMembership[]
+  engineeringNotebookStep EngineeringNotebookStep[]
+  gridStep                GridStep[]
+  portfolio               Portfolio[]
+  sessions                Session[]
+  groupSet                GroupSet[]
+  groups                  Group[]
+  sentKudos               Kudo[]                    @relation("KudoFromUser")
+  receivedKudos           Kudo[]                    @relation("KudoToUser")
+  feelingsTracker         FeelingsTracker[]
+}
+
+model Account {
+  id                       String  @id @default(cuid())
+  userId                   String
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String? @db.VarChar(2000)
+  refresh_token_expires_in Int?
+  access_token             String? @db.VarChar(2000)
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String? @db.VarChar(2000)
+  session_state            String? @db.VarChar(2000)
+  oauth_token_secret       String? @db.VarChar(2000)
+  oauth_token              String? @db.VarChar(2000)
+  user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model AppChallenge {
+  id          String  @id @default(cuid())
+  displayName String?
+  machineName String?
+}
+
+model Classroom {
+  id            String                @id @default(cuid())
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @default(now())
+  createdBy     String
+  updatedBy     String?
+  displayName   String
+  accessCode    String?
+  active        Boolean               @default(true)
+  endDate       DateTime
+  startDate     DateTime
+  teacherId     String
+  description   String?
+  nickname      String?
+  grade         Grade?
+  teacher       User                  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  students      ClassroomMembership[]
+  groupSets     GroupSet[]
+  assignments   Assignment[]
+  AssignmentSet AssignmentSet[]
+
+  @@index([teacherId])
+}
+
+model ClassroomMembership {
+  id          String     @id @default(cuid())
+  joinedAt    DateTime   @default(now())
+  leftAt      DateTime?
+  classroomId String?
+  userId      String?
+  classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GroupSet {
+  id                 String     @id @default(cuid())
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @default(now())
+  createdBy          String
+  classroomId        String?
+  displayName        String
+  groups             Group[]
+  classroom          Classroom? @relation(fields: [classroomId], references: [id])
+  unassignedStudents User[]
+
+  @@index([classroomId])
+}
+
+model Group {
+  id          String       @id @default(cuid())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now())
+  createdBy   String?
+  updatedBy   String?
+  displayName String
+  groupSetId  String?
+  groupSet    GroupSet?    @relation(fields: [groupSetId], references: [id])
+  assignments Assignment[]
+  students    User[]
+}
+
+model Assignment {
+  id                       String                    @id @default(cuid())
+  active                   Boolean                   @default(true)
+  displayName              String
+  dueAt                    DateTime
+  educatorDescription      String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @default(now())
+  createdBy                String
+  updatedBy                String?
+  roomKey                  String                    @unique
+  grade                    Grade?
+  unit                     String
+  notebookDescription      String
+  groupId                  String
+  classroomId              String
+  classroom                Classroom                 @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  group                    Group                     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  tags                     Tag[]
+  assignmentState          AssignmentState?
+  assignmentSetId          String?
+  assignmentSet            AssignmentSet?            @relation(fields: [assignmentSetId], references: [id])
+  kudos                    Kudo[]
+  feelingsTracker          FeelingsTracker[]
+  engineeringNotebookSteps EngineeringNotebookStep[]
+  gridSteps                GridStep[]
+
+  @@index([classroomId])
+}
+
+model AssignmentSet {
+  id          String       @id @default(cuid())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now())
+  assignment  Assignment[]
+  classroomId String?
+  classroom   Classroom?   @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId])
+}
+
+model Kudo {
+  id           String     @id @default(cuid())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now())
+  updatedBy    String?
+  type         KudosType
+  isPositive   Boolean
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  fromId       String
+  sender       User       @relation("KudoFromUser", fields: [fromId], references: [id], onDelete: Cascade)
+  toId         String
+  receiver     User       @relation("KudoToUser", fields: [toId], references: [id], onDelete: Cascade)
+  Portfolio    Portfolio? @relation(fields: [portfolioId], references: [id])
+  portfolioId  String?
+}
+
+model FeelingsTracker {
+  id           String      @id @default(cuid())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @default(now())
+  studentId    String
+  student      User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  updatedBy    String?
+  type         FeelingType
+  assignmentId String
+  assignment   Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  Portfolio    Portfolio?  @relation(fields: [portfolioId], references: [id])
+  portfolioId  String?
+}
+
+model AssignmentState {
+  id           String     @id @default(cuid())
+  boardState   String     @db.VarChar(5000)
+  assignmentId String     @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now())
+
+  @@index([assignmentId])
+}
+
+model Portfolio {
+  id                       String                    @id @default(cuid())
+  assignmentId             String
+  createdAt                DateTime?                 @default(now())
+  updatedAt                DateTime?                 @default(now())
+  submittedAt              DateTime?
+  submitted                Boolean                   @default(false)
+  userId                   String
+  engineeringNotebookSteps EngineeringNotebookStep[]
+  gridSteps                GridStep[]
+  feelingsTrackers         FeelingsTracker[]
+  kudos                    Kudo[]
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([assignmentId])
+}
+
+model GridStep {
+  id           String     @id @default(cuid())
+  studentId    String
+  tileType     String
+  rotation     String?
+  added        Boolean
+  xPosition    Int
+  yPosition    Int
+  tileVariant  Int
+  portfolioId  String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now())
+  portfolio    Portfolio  @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+
+  @@index([assignmentId])
+}
+
+model EngineeringNotebookStep {
+  id           String     @id @default(cuid())
+  studentId    String
+  data         String
+  field        String
+  page         String
+  action       String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now())
+  portfolioId  String?
+  portfolio    Portfolio? @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  iteration    Int        @default(1)
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+
+  @@index([assignmentId])
+}
+
+model Tag {
+  id           String      @id @default(cuid())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @default(now())
+  createdBy    String?
+  updatedBy    String?
+  name         String?
+  assignmentId String?
+  assignments  Assignment? @relation(fields: [assignmentId], references: [id])
+}
+
+model Tasks {
+  id                  String    @id @default(cuid())
+  displayName         String
+  unit                String
+  grade               Grade
+  notebookDescription String?
+  notebookSummary     String?
+  createdAt           DateTime  @default(now())
+  createdBy           String
+  type                TasksType @default(CREATE_SPACE)
+}
+
+model Subscription {
+  id                   String        @id @default(cuid())
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @default(now())
+  trialPeriodStartDate DateTime?
+  trialPeriodEndDate   DateTime?
+  subscribeAfterTrial  Boolean?
+  currentPlanId        String?
+  offerId              String?
+  offerStartDate       DateTime?
+  offerEndDate         DateTime?
+  dateSubscribed       DateTime?
+  dateUnsubscribed     DateTime?
+  validUntil           DateTime?
+  invoices             Invoice[]
+  planHistory          PlanHistory[]
+  currentPlan          Plan?         @relation(fields: [currentPlanId], references: [id])
+  offers               Offer?        @relation(fields: [offerId], references: [id])
+}
+
+model Plan {
+  id           String         @id @default(cuid())
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now())
+  name         String?
+  price        String?
+  currency     String?
+  active       Boolean?
+  planHistory  PlanHistory[]
+  subscription Subscription[]
+}
+
+model PlanHistory {
+  id             String        @id @default(cuid())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now())
+  planId         String?
+  subscriptionId String?
+  dateStart      DateTime?
+  dateEnd        DateTime?
+  Invoice        Invoice[]
+  plan           Plan?         @relation(fields: [planId], references: [id])
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+model Invoice {
+  id                     String        @id @default(cuid())
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @default(now())
+  subscriptionId         String?
+  planHistoryId          String?
+  invoicePeriodStartDate DateTime?
+  invoicePeriodEndDate   DateTime?
+  invoiceDescription     String?
+  invoiceAmount          String?
+  invoiceCurrency        String?
+  invoiceStatus          String?
+  invoiceDue             DateTime?
+  planHistory            PlanHistory?  @relation(fields: [planHistoryId], references: [id])
+  subscription           Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+model Offer {
+  id                 String         @id @default(cuid())
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @default(now())
+  name               String?
+  startDate          DateTime?
+  endDate            DateTime?
+  description        String?
+  discountAmount     String?
+  discountPercentage String?
+  durationInMonths   String?
+  durationEndDate    DateTime?
+  subscriptions      Subscription[]
+}
+
+model ResetPasswordRequest {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  email     String
+  expires   DateTime
+}
+
+enum FeelingType {
+  HAPPY
+  CALM
+  FOCUSED
+  READYTOLEARN
+  SAD
+  SICK
+  WITHDRAWN
+  TIRED
+  FRUSTRATED
+  WORRIED
+  SILLY
+  EXCITED
+  MAD
+  TERRIFIED
+  YELLING
+  FURIOUS
+}
+
+enum KudosType {
+  TEAMWORK
+  EFFORT
+  COMMUNICATION
+}
+
+enum TasksType {
+  CHALLENGE_SET
+  CREATE_SPACE
+}
+
+enum UserRole {
+  TEACHER
+  STUDENT
+  COLLABORATOR
+  ADMIN
+}
+
+enum Grade {
+  K
+  FIRST
+  SECOND
+  THIRD
+  FOURTH
+  FIFTH
+  SIXTH
+  SEVENTH
+  EIGHTH
+  MULTIPLE
+}

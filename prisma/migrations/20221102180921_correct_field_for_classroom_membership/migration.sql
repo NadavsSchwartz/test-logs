@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "ClassroomMembership" ALTER COLUMN "joinedAt" SET DEFAULT CURRENT_TIMESTAMP,
+ALTER COLUMN "leftAt" DROP NOT NULL;
